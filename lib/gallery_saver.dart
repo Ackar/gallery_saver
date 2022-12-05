@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:gallery_saver/files.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/http.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
 
@@ -86,11 +88,26 @@ class GallerySaver {
     }
     var bytes = req.bodyBytes;
     String dir = (await getTemporaryDirectory()).path;
-    final filename = Uri.parse(url).pathSegments.last;
+    String filename = _filenameFromHeaders(url, req);
     File file = new File('$dir/$filename');
     await file.writeAsBytes(bytes);
     print('File size:${await file.length()}');
     print(file.path);
     return file;
+  }
+
+  static String _filenameFromHeaders(String url, Response req) {
+    // if content-disposition is set and has the correct format use that
+    if (req.headers.containsKey("content-disposition")) {
+      final filenamePattern = RegExp("filename=\"([^\"]+)\"");
+      final match =
+          filenamePattern.firstMatch(req.headers["content-disposition"]!);
+      if (match != null && match[1] != null) {
+        return match[1]!;
+      }
+    }
+
+    // otherwise, use the last part of the URL
+    return Uri.parse(url).pathSegments.last;
   }
 }
